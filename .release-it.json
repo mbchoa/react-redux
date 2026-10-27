@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "after:bump": "pnpm install && git add -u"
+  },
+  "git": {
+    "tagName": "v${version}"
+  },
+  "npm": {
+    "publish": false
+  }
+}

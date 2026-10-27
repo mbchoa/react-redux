@@ -3,13 +3,16 @@ id: hooks
 title: Hooks
 sidebar_label: Hooks
 hide_title: true
+description: 'API > Hooks: the `useSelector` and `useDispatch` hooks`'
 ---
+
+&nbsp;
 
 # Hooks
 
-React's new ["hooks" APIs](https://reactjs.org/docs/hooks-intro.html) give function components the ability to use local component state, execute side effects, and more.  React also lets us write [custom hooks](https://reactjs.org/docs/hooks-custom.html), which let us extract reusable hooks to add our own behavior on top of React's built-in hooks.
+React's ["hooks" APIs](https://react.dev/reference/react#) give function components the ability to use local component state, execute side effects, and more. React also lets us write [custom hooks](https://react.dev/learn/reusing-logic-with-custom-hooks#extracting-your-own-custom-hook-from-a-component), which let us extract reusable hooks to add our own behavior on top of React's built-in hooks.
 
-React Redux includes its own custom hook APIs, which allow your React components to subscribe to the Redux store and dispatch actions. 
+React Redux includes its own custom hook APIs, which allow your React components to subscribe to the Redux store and dispatch actions.
 
 :::tip
 
@@ -28,11 +31,12 @@ As with `connect()`, you should start by wrapping your entire application in a `
 ```jsx
 const store = createStore(rootReducer)
 
-ReactDOM.render(
+// As of React 18
+const root = ReactDOM.createRoot(document.getElementById('root'))
+root.render(
   <Provider store={store}>
     <App />
   </Provider>,
-  document.getElementById('root')
 )
 ```
 
@@ -40,27 +44,45 @@ From there, you may import any of the listed React Redux hooks APIs and use them
 
 ## `useSelector()`
 
-```js
-const result: any = useSelector(selector: Function, equalityFn?: Function)
+```ts
+type RootState = ReturnType<typeof store.getState>
+type SelectorFn = <Selected>(state: RootState) => Selected
+type EqualityFn = (a: any, b: any) => boolean
+export type DevModeCheckFrequency = 'never' | 'once' | 'always'
+
+interface UseSelectorOptions {
+  equalityFn?: EqualityFn
+  devModeChecks?: {
+    stabilityCheck?: DevModeCheckFrequency
+    identityFunctionCheck?: DevModeCheckFrequency
+  }
+}
+
+const result: Selected = useSelector(
+  selector: SelectorFn,
+  options?: EqualityFn | UseSelectorOptions
+)
 ```
 
-Allows you to extract data from the Redux store state, using a selector function.
+Allows you to extract data from the Redux store state for use in this component, using a selector function.
 
 :::info
 
 The selector function should be [pure](https://en.wikipedia.org/wiki/Pure_function) since it is potentially executed multiple times and at arbitrary points in time.
 
+See [Using Redux: Deriving Data with Selectors](/usage/deriving-data-selectors) in the Redux docs for more details on writing and using selector functions.
+
 :::
 
-The selector is approximately equivalent to the [`mapStateToProps` argument to `connect`](../using-react-redux/connect-mapstate) conceptually. The selector will be called with the entire Redux store state as its only argument. The selector will be run whenever the function component renders (unless its reference hasn't changed since a previous render of the component so that a cached result can be returned by the hook without re-running the selector). `useSelector()` will also subscribe to the Redux store, and run your selector whenever an action is dispatched.
+The selector will be called with the entire Redux store state as its only argument. The selector may return any value as a result, including directly returning a value that was nested inside `state`, or deriving new values. The return value of the selector will be used as the return value of the `useSelector()` hook.
 
-However, there are some differences between the selectors passed to `useSelector()` and a `mapState` function:
+The selector will be run whenever the function component renders (unless its reference hasn't changed since a previous render of the component so that a cached result can be returned by the hook without re-running the selector). `useSelector()` will also subscribe to the Redux store, and run your selector whenever an action is dispatched.
 
-- The selector may return any value as a result, not just an object. The return value of the selector will be used as the return value of the `useSelector()` hook.
-- When an action is dispatched, `useSelector()` will do a reference comparison of the previous selector result value and the current result value. If they are different, the component will be forced to re-render. If they are the same, the component will not re-render.
-- The selector function does _not_ receive an `ownProps` argument. However, props can be used through closure (see the examples below) or by using a curried selector.
-- Extra care must be taken when using memoizing selectors (see examples below for more details).
-- `useSelector()` uses strict `===` reference equality checks by default, not shallow equality (see the following section for more details).
+When an action is dispatched, `useSelector()` will do a reference comparison of the previous selector result value and the current result value. If they are different, the component will be forced to re-render. If they are the same, the component will not re-render. `useSelector()` uses strict `===` reference equality checks by default, not shallow equality (see the following section for more details).
+
+The selector is approximately equivalent to the [`mapStateToProps` argument to `connect`](../using-react-redux/connect-extracting-data-with-mapStateToProps.md) conceptually.
+
+You may call `useSelector()` multiple times within a single function component. Each call to `useSelector()` creates an individual subscription to the Redux store. Because of the React update batching behavior used in React Redux v7, a dispatched action that causes multiple `useSelector()`s in the same component to return new values _should_ only result in a single re-render.
 
 :::info
 
@@ -68,15 +90,13 @@ There are potential edge cases with using props in selectors that may cause issu
 
 :::
 
-You may call `useSelector()` multiple times within a single function component. Each call to `useSelector()` creates an individual subscription to the Redux store. Because of the React update batching behavior used in React Redux v7, a dispatched action that causes multiple `useSelector()`s in the same component to return new values _should_ only result in a single re-render.
-
 ### Equality Comparisons and Updates
 
 When the function component renders, the provided selector function will be called and its result will be returned
 from the `useSelector()` hook. (A cached result may be returned by the hook without re-running the selector if it's the same function reference as on a previous render of the component.)
 
 However, when an action is dispatched to the Redux store, `useSelector()` only forces a re-render if the selector result
-appears to be different than the last result. As of v7.1.0-alpha.5, the default comparison is a strict `===` reference
+appears to be different than the last result. The default comparison is a strict `===` reference
 comparison. This is different than `connect()`, which uses shallow equality checks on the results of `mapState` calls
 to determine if re-rendering is needed. This has several implications on how you should use `useSelector()`.
 
@@ -92,8 +112,25 @@ every time will _always_ force a re-render by default. If you want to retrieve m
 ```js
 import { shallowEqual, useSelector } from 'react-redux'
 
-// later
+// Pass it as the second argument directly
 const selectedData = useSelector(selectorReturningObject, shallowEqual)
+
+// or pass it as the `equalityFn` field in the options argument
+const selectedData = useSelector(selectorReturningObject, {
+  equalityFn: shallowEqual,
+})
+```
+
+- Use a custom equality function as the `equalityFn` argument to `useSelector()`, like:
+
+```js
+import { useSelector } from 'react-redux'
+
+// equality function
+const customEqual = (oldValue, newValue) => oldValue === newValue
+
+// later
+const selectedData = useSelector(selectorReturningObject, customEqual)
 ```
 
 The optional comparison function also enables using something like Lodash's `_.isEqual()` or Immutable.js's comparison capabilities.
@@ -107,7 +144,7 @@ import React from 'react'
 import { useSelector } from 'react-redux'
 
 export const CounterComponent = () => {
-  const counter = useSelector(state => state.counter)
+  const counter = useSelector((state) => state.counter)
   return <div>{counter}</div>
 }
 ```
@@ -118,8 +155,8 @@ Using props via closure to determine what to extract:
 import React from 'react'
 import { useSelector } from 'react-redux'
 
-export const TodoListItem = props => {
-  const todo = useSelector(state => state.todos[props.id])
+export const TodoListItem = (props) => {
+  const todo = useSelector((state) => state.todos[props.id])
   return <div>{todo.text}</div>
 }
 ```
@@ -136,8 +173,8 @@ import { useSelector } from 'react-redux'
 import { createSelector } from 'reselect'
 
 const selectNumCompletedTodos = createSelector(
-  state => state.todos,
-  todos => todos.filter(todo => todo.completed).length
+  (state) => state.todos,
+  (todos) => todos.filter((todo) => todo.completed).length,
 )
 
 export const CompletedTodosCounter = () => {
@@ -163,15 +200,15 @@ import { useSelector } from 'react-redux'
 import { createSelector } from 'reselect'
 
 const selectCompletedTodosCount = createSelector(
-  state => state.todos,
+  (state) => state.todos,
   (_, completed) => completed,
   (todos, completed) =>
-    todos.filter(todo => todo.completed === completed).length
+    todos.filter((todo) => todo.completed === completed).length,
 )
 
 export const CompletedTodosCount = ({ completed }) => {
-  const matchingCount = useSelector(state =>
-    selectCompletedTodosCount(state, completed)
+  const matchingCount = useSelector((state) =>
+    selectCompletedTodosCount(state, completed),
   )
 
   return <div>{matchingCount}</div>
@@ -187,47 +224,112 @@ export const App = () => {
 }
 ```
 
-However, when the selector is used in multiple component instances and depends on the component's props, you need to ensure that each component instance gets its own selector instance (see [here](https://github.com/reduxjs/reselect#accessing-react-props-in-selectors) for a more thorough explanation of why this is necessary):
+However, when the selector is used in multiple component instances and depends on the component's props, you need to ensure that selector's memoization behavior is properly configured (see [here](/reselect/FAQ#can-i-share-a-selector-across-multiple-component-instances) for details).
 
-```jsx
-import React, { useMemo } from 'react'
-import { useSelector } from 'react-redux'
-import { createSelector } from 'reselect'
+### Development mode checks
 
-const makeSelectCompletedTodosCount = () =>
-  createSelector(
-    state => state.todos,
-    (_, completed) => completed,
-    (todos, completed) =>
-      todos.filter(todo => todo.completed === completed).length
-  )
+`useSelector` runs some extra checks in development mode to watch for unexpected behavior. These checks do not run in production builds.
 
-export const CompletedTodosCount = ({ completed }) => {
-  const selectCompletedTodosCount = useMemo(makeSelectCompletedTodosCount, [])
+:::info
 
-  const matchingCount = useSelector(state =>
-    selectCompletedTodosCount(state, completed)
-  )
+These checks were first added in v8.1.0
 
-  return <div>{matchingCount}</div>
-}
+:::
 
-export const App = () => {
-  return (
-    <>
-      <span>Number of done todos:</span>
-      <CompletedTodosCount completed={true} />
-      <span>Number of unfinished todos:</span>
-      <CompletedTodosCount completed={false} />
-    </>
-  )
+#### Selector result stability
+
+In development, the provided selector function is run an extra time with the same parameter during the first call to `useSelector`, and warns in the console if the selector returns a different result (based on the `equalityFn` provided).
+
+This is important, as **a selector that returns a different result reference when called again with the same inputs will cause unnecessary rerenders**.
+
+```ts
+// this selector will return a new object reference whenever called,
+// which causes the component to rerender after *every* action is dispatched
+const { count, user } = useSelector((state) => ({
+  count: state.count,
+  user: state.user,
+}))
+```
+
+If a selector result is suitably stable (or the selector is memoized), it will not return a different result and no warning will be logged.
+
+By default, this will only happen when the selector is first called. You can configure the check in the Provider or at each `useSelector` call.
+
+```tsx title="Global setting via context"
+<Provider store={store} stabilityCheck="always">
+  {children}
+</Provider>
+```
+
+```tsx title="Individual hook setting"
+function Component() {
+  const count = useSelector(selectCount, {
+    devModeChecks: { stabilityCheck: 'never' },
+  })
+  // run once (default)
+  const user = useSelector(selectUser, {
+    devModeChecks: { stabilityCheck: 'once' },
+  })
+  // ...
 }
 ```
+
+#### Identity Function (`state => state`) Check
+
+:::danger Breaking Change!
+
+This was previously referred to as `noopCheck`.
+
+:::
+
+In development, a check is conducted on the result returned by the selector. It warns in the console if the result is the same as the parameter passed in, i.e. the root state.
+
+**A `useSelector` call returning the entire root state is almost always a mistake**, as it means the component will rerender whenever _anything_ in state changes. Selectors should be as granular as possible, like `state => state.some.nested.field`.
+
+```ts no-transpile
+// BAD: this selector returns the entire state, meaning that the component will rerender unnecessarily
+const { count, user } = useSelector((state) => state)
+
+// GOOD: instead, select only the state you need, calling useSelector as many times as needed
+const count = useSelector((state) => state.count.value)
+const user = useSelector((state) => state.auth.currentUser)
+```
+
+By default, this will only happen when the selector is first called. You can configure the check in the Provider or at each `useSelector` call.
+
+```tsx title="Global setting via context"
+<Provider store={store} identityFunctionCheck="always">
+  {children}
+</Provider>
+```
+
+```tsx title="Individual hook setting"
+function Component() {
+  const count = useSelector(selectCount, {
+    devModeChecks: { identityFunctionCheck: 'never' },
+  })
+  // run once (default)
+  const user = useSelector(selectUser, {
+    devModeChecks: { identityFunctionCheck: 'once' },
+  })
+  // ...
+}
+```
+
+### Comparisons with `connect`
+
+There are some differences between the selectors passed to `useSelector()` and a `mapState` function:
+
+- The selector may return any value as a result, not just an object.
+- The selector normally _should_ return just a single value, and not an object. If you do return an object or an array, be sure to use a memoized selector to avoid unnecessary re-renders.
+- The selector function does _not_ receive an `ownProps` argument. However, props can be used through closure (see the examples above) or by using a curried selector.
+- You can use the `equalityFn` option to customize the comparison behavior
 
 ## `useDispatch()`
 
-```js
-const dispatch = useDispatch()
+```ts
+import type { Dispatch } from 'redux'
+const dispatch: Dispatch = useDispatch()
 ```
 
 This hook returns a reference to the `dispatch` function from the Redux store. You may use it to dispatch actions as needed.
@@ -252,7 +354,7 @@ export const CounterComponent = ({ value }) => {
 }
 ```
 
-When passing a callback using `dispatch` to a child component, you may sometimes want to memoize it with [`useCallback`](https://reactjs.org/docs/hooks-reference.html#usecallback). _If_ the child component is trying to optimize render behavior using `React.memo()` or similar, this avoids unnecessary rendering of child components due to the changed callback reference.
+When passing a callback using `dispatch` to a child component, you may sometimes want to memoize it with [`useCallback`](https://react.dev/reference/react/useCallback). _If_ the child component is trying to optimize render behavior using `React.memo()` or similar, this avoids unnecessary rendering of child components due to the changed callback reference.
 
 ```jsx
 import React, { useCallback } from 'react'
@@ -262,7 +364,7 @@ export const CounterComponent = ({ value }) => {
   const dispatch = useDispatch()
   const incrementCounter = useCallback(
     () => dispatch({ type: 'increment-counter' }),
-    [dispatch]
+    [dispatch],
   )
 
   return (
@@ -286,24 +388,26 @@ Normally, that store instance never changes in an application.
 However, the React hooks lint rules do not know that `dispatch` should be stable, and will warn that the `dispatch` variable
 should be added to dependency arrays for `useEffect` and `useCallback`. The simplest solution is to do just that:
 
-````js
-export const Todos() = () => {
-  const dispatch = useDispatch();
+```js
+export const Todos = () => {
+  const dispatch = useDispatch()
 
   useEffect(() => {
     dispatch(fetchTodos())
-  // highlight-start
-  // Safe to add dispatch to the dependencies array
+    // highlight-start
+    // Safe to add dispatch to the dependencies array
   }, [dispatch])
   // highlight-end
 }
+```
 
 :::
 
 ## `useStore()`
 
-```js
-const store = useStore()
+```ts
+import type { Store } from 'redux'
+const store: Store = useStore()
 ```
 
 This hook returns a reference to the same Redux store that was passed in to the `<Provider>` component.
@@ -312,16 +416,23 @@ This hook should probably not be used frequently. Prefer `useSelector()` as your
 
 #### Examples
 
-```jsx
+```js
 import React from 'react'
 import { useStore } from 'react-redux'
 
-export const CounterComponent = ({ value }) => {
+export const ExampleComponent = ({ value }) => {
   const store = useStore()
+
+  const onClick = () => {
+    // Not _recommended_, but safe
+    // This avoids subscribing to the state via `useSelector`
+    // Prefer moving this logic into a thunk instead
+    const numTodos = store.getState().todos.length
+  }
 
   // EXAMPLE ONLY! Do not do this in a real app.
   // The component will not automatically update if the store state changes
-  return <div>{store.getState()}</div>
+  return <div>{store.getState().todos.length}</div>
 }
 ```
 
@@ -337,7 +448,7 @@ import {
   Provider,
   createStoreHook,
   createDispatchHook,
-  createSelectorHook
+  createSelectorHook,
 } from 'react-redux'
 
 const MyContext = React.createContext(null)
@@ -365,6 +476,8 @@ export function MyProvider({ children }) {
 :::info
 
 The React-Redux hooks API has been production-ready since we released it in v7.1.0, and **we recommend using the hooks API as the default approach in your components**. However, there are a couple of edge cases that can occur, and **we're documenting those so that you can be aware of them**.
+
+In practice, these are a rare concern - we've received far more comments about these being in the docs than actual reports of these being a real problem in an app.
 
 :::
 
@@ -402,7 +515,7 @@ If you prefer to deal with this issue yourself, here are some possible options f
 For a longer description of these scenarios, see:
 
 - ["Stale props and zombie children in Redux" by Kai Hao](https://kaihao.dev/posts/Stale-props-and-zombie-children-in-Redux)
-- [this chat log that describes the problems in more detail](https://gist.github.com/markerikson/faac6ae4aca7b82a058e13216a7888ec)
+- [A chat log that describes the problems in more detail](https://gist.github.com/markerikson/faac6ae4aca7b82a058e13216a7888ec)
 - [issue #1179](https://github.com/reduxjs/react-redux/issues/1179)
 
 :::
@@ -415,7 +528,7 @@ If further performance optimizations are necessary, you may consider wrapping yo
 
 ```jsx
 const CounterComponent = ({ name }) => {
-  const counter = useSelector(state => state.counter)
+  const counter = useSelector((state) => state.counter)
   return (
     <div>
       {name}: {counter}
@@ -440,7 +553,7 @@ much conceptual overhead and syntactic complexity.
 
 You should probably prefer to call the [`useDispatch`](#usedispatch) hook in your components to retrieve a reference to `dispatch`,
 and manually call `dispatch(someActionCreator())` in callbacks and effects as needed. You may also use the Redux
-[`bindActionCreators`](https://redux.js.org/api/bindactioncreators) function in your own code to bind action creators,
+[`bindActionCreators`](/api/bindactioncreators) function in your own code to bind action creators,
 or "manually" bind them like `const boundAddTodo = (text) => dispatch(addTodo(text))`.
 
 However, if you'd like to still use this hook yourself, here's a copy-pastable version that supports passing in action
@@ -456,11 +569,11 @@ export function useActions(actions, deps) {
   return useMemo(
     () => {
       if (Array.isArray(actions)) {
-        return actions.map(a => bindActionCreators(a, dispatch))
+        return actions.map((a) => bindActionCreators(a, dispatch))
       }
       return bindActionCreators(actions, dispatch)
     },
-    deps ? [dispatch, ...deps] : [dispatch]
+    deps ? [dispatch, ...deps] : [dispatch],
   )
 }
 ```
@@ -477,5 +590,4 @@ export function useShallowEqualSelector(selector) {
 
 ### Additional considerations when using hooks
 
-There are some architectural trade offs to take into consideration when deciding whether to use hooks or not. Mark Erikson summarizes these nicely in his two blog posts [Thoughts on React Hooks, Redux, and Separation of Concerns](https://blog.isquaredsoftware.com/2019/07/blogged-answers-thoughts-on-hooks/) and [Hooks, HOCs, and Tradeoffs](https://blog.isquaredsoftware.com/2019/09/presentation-hooks-hocs-tradeoffs/).
-````
+There are some architectural trade-offs to take into consideration when deciding whether to use hooks or not. Mark Erikson summarizes these nicely in his two blog posts [Thoughts on React Hooks, Redux, and Separation of Concerns](https://blog.isquaredsoftware.com/2019/07/blogged-answers-thoughts-on-hooks/) and [Hooks, HOCs, and Tradeoffs](https://blog.isquaredsoftware.com/2019/09/presentation-hooks-hocs-tradeoffs/).

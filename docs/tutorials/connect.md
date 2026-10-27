@@ -1,17 +1,20 @@
 ---
 id: connect
-title: "Tutorial: Connect API"
+title: 'Tutorial: Connect API'
 hide_title: true
-sidebar_label: 
+sidebar_label: 'Tutorial: Connect API'
+description: 'Tutorials > Connect API: how to use the legacy connect API'
 ---
+
+&nbsp;
 
 # Tutorial: Using the `connect` API
 
-:::tip
+:::warning Deprecated
 
-We now recommend using [the React-Redux hooks API as the default](../api/hooks.md). However, the `connect` API still works fine.
+`connect` is marked as deprecated as of React-Redux 9.3.0. It still works, and we do not intend to remove it, but [**we recommend using the hooks API instead**](../api/hooks.md). For a hooks-based tutorial, start with the [**Redux Quick Start**](/tutorials/quick-start) and the [**Redux Essentials tutorial**](/tutorials/essentials/part-1-overview-concepts).
 
-This tutorial also shows some older practices we no longer recommend, like separating Redux logic into folders by type. We've kept this tutorial as-is for completeness, but recommend reading through [the "Redux Essentials" tutorial](https://redux.js.org/tutorials/essentials/part-1-overview-concepts) and the [Redux Style Guide](https://redux.js.org/style-guide/style-guide) in the Redux docs for our current best practices.
+This tutorial also shows some older practices we no longer recommend, like separating Redux logic into folders by type. We've kept it for completeness, but see the [Redux Style Guide](/style-guide/) for our current best practices.
 
 :::
 
@@ -48,7 +51,7 @@ We have implemented our React UI components as follows:
 
 **The Redux Store**
 
-The Redux portion of the application has been set up using the [patterns recommended in the Redux docs](https://redux.js.org):
+The Redux portion of the application has been set up using the [patterns recommended in the Redux docs](/):
 
 - Store
   - `todos`: A normalized reducer of todos. It contains a `byIds` map of all todos and a `allIds` that contains the list of all ids.
@@ -89,12 +92,12 @@ import TodoApp from './TodoApp'
 import { Provider } from 'react-redux'
 import store from './redux/store'
 
-const rootElement = document.getElementById('root')
-ReactDOM.render(
+// As of React 18
+const root = ReactDOM.createRoot(document.getElementById('root'))
+root.render(
   <Provider store={store}>
     <TodoApp />
   </Provider>,
-  rootElement
 )
 ```
 
@@ -273,7 +276,7 @@ const TodoList = // ... UI component implementation
 export default connect(state => ({ todos: getTodos(state) }))(TodoList);
 ```
 
-We recommend encapsulating any complex lookups or computations of data in selector functions. In addition, you can further optimize the performance by using [Reselect](https://github.com/reduxjs/reselect) to write “memoized” selectors that can skip unnecessary work. (See [the Redux docs page on Computing Derived Data](https://redux.js.org/recipes/computing-derived-data#sharing-selectors-across-multiple-components) and the blog post [Idiomatic Redux: Using Reselect Selectors for Encapsulation and Performance](https://blog.isquaredsoftware.com/2017/12/idiomatic-redux-using-reselect-selectors/) for more information on why and how to use selector functions.)
+We recommend encapsulating any complex lookups or computations of data in selector functions. In addition, you can further optimize the performance by using [Reselect](https://github.com/reduxjs/reselect) to write “memoized” selectors that can skip unnecessary work. (See [the Redux docs page on Computing Derived Data](/usage/deriving-data-selectors#creating-unique-selector-instances) and the blog post [Idiomatic Redux: Using Reselect Selectors for Encapsulation and Performance](https://blog.isquaredsoftware.com/2017/12/idiomatic-redux-using-reselect-selectors/) for more information on why and how to use selector functions.)
 
 Now that our `<TodoList />` is connected to the store. It should receive the list of todos, map over them, and pass each todo to the `<Todo />` component. `<Todo />` will in turn render them to the screen. Now try adding a todo. It should come up on our todo list!
 
@@ -435,10 +438,10 @@ Now we've finished a very simple example of a todo app with React Redux. All our
 
 ## Links
 
-- [Usage with React](https://redux.js.org/basics/usage-with-react)
+- [Usage with React](/tutorials/fundamentals/part-5-ui-react)
 - [Using the React Redux Bindings](https://blog.isquaredsoftware.com/presentations/workshops/redux-fundamentals/react-redux.html)
 - [Higher Order Components in Depth](https://medium.com/@franleplant/react-higher-order-components-in-depth-cf9032ee6c3e)
-- [Computing Derived Data](https://redux.js.org/recipes/computing-derived-data#sharing-selectors-across-multiple-components)
+- [Computing Derived Data](/usage/deriving-data-selectors#creating-unique-selector-instances)
 - [Idiomatic Redux: Using Reselect Selectors for Encapsulation and Performance](https://blog.isquaredsoftware.com/2017/12/idiomatic-redux-using-reselect-selectors/)
 
 ## Get More Help
